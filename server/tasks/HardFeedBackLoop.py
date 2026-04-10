@@ -293,6 +293,10 @@ class HardFeedbackLoopTask:
         
         if score == 1.0:
             reason = "System Stabilized " + reason
+        
+        score -= 0.01 * len(actions)
+
+        score = max(0.01, min(score, 0.99))
 
         return {
             "success": success,

@@ -119,6 +119,10 @@ class EasyDBOverloadTask:
         if score == 1:
             reason = "Congratts the DB is completely stable, " + reason
 
+        score -= 0.01 * len(actions)
+
+        score = max(0.01, min(score, 0.99))
+
         return {
             "success": success,
             "score": score,

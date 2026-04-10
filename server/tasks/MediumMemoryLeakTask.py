@@ -173,6 +173,12 @@ class MediumMemoryLeakTask:
         if reason == "":
             reason = "Memory leak not properly resolved"
 
+        # small deduction in score if the overall steps increase
+        
+        score -= 0.01 * len(actions)
+
+        score = max(0.01, min(score, 0.99))
+
         return {
             "success": success,
             "score": score,
