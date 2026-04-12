@@ -139,7 +139,7 @@ Deploy Buddy contains **five incident scenarios**, each crafted to test differen
 ### 🔴 Task 5: Hard — Cascading Failure from Retry Storm
 
 **Problem**
-- A retry storm causes cascading failures across services.
+- Too many retry API Calls causing cascading failures across services.
 
 **Symptoms**
 - Increasing API error rates.
@@ -178,7 +178,7 @@ Deploy Buddy contains **five incident scenarios**, each crafted to test differen
 
 ---
 
-> **Deploy Buddy bridges the gap between theoretical RL environments and real-world SRE operations**, providing a meaningful benchmark for evaluating intelligent agents capable of managing production-scale distributed systems.
+> **Deploy Buddy enacts real-world SRE operations**, providing a meaningful benchmark for evaluating intelligent agents capable of managing production-scale distributed systems.
 
 ## Key SRE Lessons
 
@@ -348,10 +348,7 @@ Each service (api, db, task_runner) includes performance metrics, deployment ver
 
 
 ## 🏆 Reward Evaluation (Deterministic Heuristic Graders)
-
-Deploy Buddy uses **Deterministic Heuristic Graders** to evaluate agent actions and assign rewards. This approach ensures **transparent**, **reproducible**, and **interpretable** evaluation of decisions, closely mirroring how real-world Site Reliability Engineers (SREs) assess incident response effectiveness.
-
-Unlike black-box reward mechanisms, deterministic graders rely on well-defined rules derived from domain expertise. Each action taken by the agent is evaluated based on its **impact on system health**, **progress toward incident resolution**, and **cost efficiency**.
+deterministic graders rely on well-defined rules derived from domain expertise. Each action taken by the agent is evaluated based on its **impact on system health**, **progress toward incident resolution**, and **cost efficiency**.
 
 ---
 
@@ -359,7 +356,6 @@ Unlike black-box reward mechanisms, deterministic graders rely on well-defined r
 
 | Principle | Description |
 |----------|-------------|
-| **Deterministic** | The same state-action pair always yields the same reward, ensuring reproducibility. |
 | **Heuristic-Based** | Rewards are derived from domain-informed rules reflecting real SRE practices. |
 | **Multi-Step Evaluation** | Each action is evaluated within the context of a sequential decision-making process. |
 | **Root Cause Alignment** | Actions addressing the true root cause receive higher rewards. |
