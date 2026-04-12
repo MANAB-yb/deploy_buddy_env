@@ -17,7 +17,7 @@ from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
 from models import DeployBuddyAction, DeployBuddyObservation
-from .tasks import EasyDBOverloadTask, MediumMemoryLeakTask, HardFeedbackLoopTask
+from .tasks import EasyDBOverloadTask, MediumMemoryLeakTask, HardFeedbackLoopTask, HardZoneFailureTask, MediumVersionIncompatibility
 
 
 class DeployBuddyEnvironment(Environment):
@@ -34,8 +34,10 @@ class DeployBuddyEnvironment(Environment):
         self._internal_state = {}
         self.task_registry = {
             "task1": EasyDBOverloadTask,
-            "task2": MediumMemoryLeakTask,
-            "task3": HardFeedbackLoopTask
+            "task2": MediumVersionIncompatibility,
+            "task3": MediumMemoryLeakTask,
+            "task4": HardZoneFailureTask,
+            "task5": HardFeedbackLoopTask,
         }
         
 
@@ -84,6 +86,8 @@ class DeployBuddyEnvironment(Environment):
 
         if metrics["api_latency"] > 500:
             alerts.append("High latency alert")
+        if s["task_runner"]["latency"] > 300:
+            alerts.append("High latency observed in task runner")
         if metrics["db_cpu"] > 75:
             alerts.append("High CPU usage in db")
         if metrics["db_latency"] > 500:
@@ -96,8 +100,18 @@ class DeployBuddyEnvironment(Environment):
             alerts.append("api server free_memory hitting limit")
         if metrics["task_runner_disk"] < 10:
             alerts.append("task_runner_disk availability is under 50 GB")
+        if metrics["task_runner_cpu"] > 75:
+            alerts.append("High Cpu utilization observed in task runners")
+        
+        # check if any zones down in any component
+        for component in ["api", "db", "task_runner"]:
+            load_balance = s[component]["load_balancer"]
+            for zone, zone_details in load_balance.items():
+                if zone_details["reachable"] == False:
+                    alerts.append(f"zone {zone} for component {component} is unavailable")
 
         return DeployBuddyObservation(
+            internal_state=s,
             metrics=metrics,
             logs=logs,
             alerts=alerts,
@@ -127,12 +141,6 @@ class DeployBuddyEnvironment(Environment):
     def _compute_reward(self, prev_state, curr_state, action):
         return self.task.compute_reward(prev_state, curr_state, action)
 
-    # def _is_resolved(self, observations: DeployBuddyObservation):
-    #     alerts = len(observations.alerts)
-    #     # resolved if there are no alerts left
-    #     if alerts == 0:
-    #         return True
-    #     return False
     
     def evaluate(self):
         return self.task.grade(

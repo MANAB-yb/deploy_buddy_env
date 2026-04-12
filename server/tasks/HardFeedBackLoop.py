@@ -1,10 +1,14 @@
 from deploy_buddy.models import DeployBuddyAction
+# Use one dot for same directory, or two dots for parent
+from ..common_methods import CommonMethods
 import numpy as np
 
 class HardFeedbackLoopTask:
     def __init__(self):
         self.name = "hard"
         self.MAX_REPLICAS = 8
+        self.common_methods = CommonMethods()
+
 
     def get_initial_state(self):
         return {
@@ -12,31 +16,72 @@ class HardFeedbackLoopTask:
                 "api": {
                     "latency": 280,
                     "error": 0.3,
-                    "replicas": 3,
                     "cpu": 84,
                     "connections": 120,
                     "free_memory": 4,
-                    "disk_available": 50
+                    "disk_available": 50,
+                    "version": "v1",
+                    "load_balancer": {
+                            "zone_a": {
+                                "replicas": 1,
+                                "reachable": True
+                            },
+                            "zone_b": {
+                                "replicas": 1,
+                                "reachable": True 
+                            },
+                            "zone_c": {
+                                "replicas": 1,
+                                "reachable": True
+                            }
+                        }
                 },
                 "task_runner": {
                     "latency": 250,
                     "error": 0.2,
                     "free_memory": 1,
-                    "replicas": 2,
                     "cpu": 80,
                     "connections": 80,
-                    "disk_available": 50
+                    "disk_available": 50,
+                    "version": "v1",
+                    "load_balancer": {
+                            "zone_a": {
+                                "replicas": 1,
+                                "reachable": True
+                            },
+                            "zone_b": {
+                                "replicas": 1,
+                                "reachable": True 
+                            },
+                            "zone_c": {
+                                "replicas": 0,
+                                "reachable": None
+                            }
+                        }
                 },
                 "db": {
                     "cpu": 70,
                     "connections": 110,
-                    "replicas": 1,
                     "latency": 300,
                     "disk_available": 50,
-                    "free_memory": 8
+                    "free_memory": 8,
+                    "version": "v1",
+                    "load_balancer": {
+                            "zone_a": {
+                                "replicas": 1,
+                                "reachable": True
+                            },
+                            "zone_b": {
+                                "replicas": 0,
+                                "reachable": None 
+                            },
+                            "zone_c": {
+                                "replicas": 0,
+                                "reachable": None
+                            }
+                        }
                 },
             },
-            "incident": "feedback_loop",
             "time": 0,
         }
 
@@ -74,123 +119,113 @@ class HardFeedbackLoopTask:
         return logs, alerts
 
     def apply_actions(self, internal_state, action: DeployBuddyAction):
-        if action.action_type == "scale_service":
+        if action.action_type == "change_lb_config":
             svc = action.target
-            delta = action.value
-            if delta == 0:
-                return internal_state
+            
+            curr, new = self.common_methods.define_change_configs(action.value, internal_state[svc]["load_balancer"])
+            delta = new - curr
+            if delta > 0: # Scale Up
+                if svc == "db":
+                    # curr = internal_state["db"]["replicas"]
+                    # new = min(curr + delta, self.MAX_REPLICAS)
 
-            # ---------- DB ----------
-            if svc == "db":
-                curr = internal_state["db"]["replicas"]
-                new = min(curr + delta, self.MAX_REPLICAS)
+                    internal_state["db"]["cpu"] = max(
+                        (internal_state["db"]["cpu"] * curr) / new, 30
+                    )
+                    internal_state["db"]["connections"] = max(
+                        (internal_state["db"]["connections"] * curr) / new, 10
+                    )
+                    internal_state["db"]["latency"] = max(
+                        (internal_state["db"]["latency"] * curr) / new, 50
+                    )
+                    # internal_state["db"]["replicas"] = new
 
-                internal_state["db"]["cpu"] = max(
-                    (internal_state["db"]["cpu"] * curr) / new, 30
-                )
-                internal_state["db"]["connections"] = max(
-                    (internal_state["db"]["connections"] * curr) / new, 10
-                )
-                internal_state["db"]["latency"] = max(
-                    (internal_state["db"]["latency"] * curr) / new, 50
-                )
-                internal_state["db"]["replicas"] = new
+                elif svc == "api":
+                    # curr = internal_state["api"]["replicas"]
+                    # new = min(curr + delta, self.MAX_REPLICAS)
 
-            # ---------- API ----------
-            elif svc == "api":
-                curr = internal_state["api"]["replicas"]
-                new = min(curr + delta, self.MAX_REPLICAS)
+                    # Api Server Continiously trying to query task runner for tasks statuses, so more threads are being acquired
+                    internal_state["api"]["cpu"] = min(
+                        internal_state["api"]["cpu"] + 2 * delta, 100
+                    )
+                    internal_state["api"]["connections"] += 3 * delta
+                    # internal_state["api"]["latency"] -= 20 * delta
+                    # internal_state["api"]["replicas"] = new
 
-                # Api Server Continiously trying to query task runner for tasks statuses, so more threads are being acquired
-                internal_state["api"]["cpu"] = min(
-                    internal_state["api"]["cpu"] + 2 * delta, 100
-                )
-                internal_state["api"]["connections"] += 3 * delta
-                internal_state["api"]["replicas"] = new
+                else:
+                    # curr = internal_state["task_runner"]["replicas"]
+                    # new = min(curr + delta, self.MAX_REPLICAS)
 
-            # ---------- TASK RUNNER ----------
-            else:
-                curr = internal_state["task_runner"]["replicas"]
-                new = min(curr + delta, self.MAX_REPLICAS)
+                    internal_state["task_runner"]["cpu"] = min(
+                        internal_state["task_runner"]["cpu"] - 3 * delta, 100
+                    )
+                    internal_state["task_runner"]["free_memory"] = min(
+                        internal_state["task_runner"]["free_memory"] + 1.5 * delta, 16
+                    )
+                    internal_state["task_runner"]["connections"] = (internal_state["db"]["connections"] * curr) / new
+                    internal_state["task_runner"]["latency"] = max((internal_state["api"]["latency"] * curr) / new, 100)
+                    # internal_state["task_runner"]["replicas"] = new
 
-                internal_state["task_runner"]["cpu"] = min(
-                    internal_state["task_runner"]["cpu"] - 3 * delta, 100
-                )
-                internal_state["task_runner"]["free_memory"] = min(
-                    internal_state["task_runner"]["free_memory"] + 1.5 * delta, 16
-                )
-                internal_state["task_runner"]["connections"] = (internal_state["db"]["connections"] * curr) / new
-                internal_state["task_runner"]["latency"] = max((internal_state["api"]["latency"] * curr) / new, 100)
-                internal_state["task_runner"]["replicas"] = new
+                    # Cascading effect on API Server & DB load reduces
+                    internal_state["db"]["cpu"] = max(
+                        internal_state["db"]["cpu"] - 4 * delta, 20
+                    )
+                    
+                    internal_state["db"]["latency"] = max((internal_state["db"]["latency"] * curr) / new, 100)
 
-                # Cascading effect on API Server & DB load reduces
-                internal_state["db"]["cpu"] = max(
-                    internal_state["db"]["cpu"] - 4 * delta, 20
-                )
-                
-                internal_state["db"]["latency"] = max((internal_state["db"]["latency"] * curr) / new, 100)
+                    internal_state["api"]["cpu"] = max(
+                        internal_state["api"]["cpu"] - 8 * delta, 20
+                    )
+                    
+                    internal_state["api"]["latency"] = max((internal_state["api"]["latency"] * curr) / new, 100)
 
-                internal_state["api"]["cpu"] = max(
-                    internal_state["api"]["cpu"] - 8 * delta, 20
-                )
-                
-                internal_state["api"]["latency"] = max((internal_state["api"]["latency"] * curr) / new, 100)
+            elif delta < 0: # Scale down
+                if svc == "db":
+                    # curr = internal_state["db"]["replicas"]
+                    new = max(curr - delta, 1)
 
-        elif action.action_type == "scale_down_service":
-            svc = action.target
-            delta = action.value
+                    # redistribute load (fewer nodes → more pressure)
+                    internal_state["db"]["cpu"] = min(
+                        (internal_state["db"]["cpu"] * curr) / new, 100
+                    )
+                    internal_state["db"]["connections"] = min(
+                        (internal_state["db"]["connections"] * curr) / new, 200
+                    )
+                    internal_state["db"]["latency"] = min(
+                        (internal_state["db"]["latency"] * curr) / new, 1000
+                    )
+                    # internal_state["db"]["replicas"] = new
 
-            if delta == 0:
-                return internal_state
+                elif svc == "api":
+                    # curr = internal_state["api"]["replicas"]
+                    new = max(curr - delta, 1)
 
-            # ---------- DB ----------
-            if svc == "db":
-                curr = internal_state["db"]["replicas"]
-                new = max(curr - delta, 1)
+                    internal_state["api"]["cpu"] = min(
+                        (internal_state["api"]["cpu"] * curr) / new, 100
+                    )
+                    internal_state["api"]["connections"] = min(
+                        (internal_state["api"]["connections"] * curr) / new, 200
+                    )
+                    internal_state["api"]["latency"] = min(
+                        (internal_state["api"]["latency"] * curr) / new, 1000
+                    )
+                    # internal_state["api"]["replicas"] = new
 
-                # redistribute load (fewer nodes → more pressure)
-                internal_state["db"]["cpu"] = min(
-                    (internal_state["db"]["cpu"] * curr) / new, 100
-                )
-                internal_state["db"]["connections"] = min(
-                    (internal_state["db"]["connections"] * curr) / new, 200
-                )
-                internal_state["db"]["latency"] = min(
-                    (internal_state["db"]["latency"] * curr) / new, 1000
-                )
-                internal_state["db"]["replicas"] = new
+                else:
+                    # curr = internal_state["task_runner"]["replicas"]
+                    new = max(curr - delta, 1)
 
-            # ---------- API ----------
-            elif svc == "api":
-                curr = internal_state["api"]["replicas"]
-                new = max(curr - delta, 1)
+                    internal_state["task_runner"]["cpu"] = min(
+                        internal_state["task_runner"]["cpu"] + 5 * delta, 100
+                    )
+                    # internal_state["task_runner"]["replicas"] = new
 
-                internal_state["api"]["cpu"] = min(
-                    (internal_state["api"]["cpu"] * curr) / new, 100
-                )
-                internal_state["api"]["connections"] = min(
-                    (internal_state["api"]["connections"] * curr) / new, 200
-                )
-                internal_state["api"]["latency"] = min(
-                    (internal_state["api"]["latency"] * curr) / new, 1000
-                )
-                internal_state["api"]["replicas"] = new
+                    # reducing task runner reduces pressure on DB slightly
+                    internal_state["db"]["cpu"] = max(
+                        internal_state["db"]["cpu"] - 2 * delta, 20
+                    )
 
-            # ---------- TASK RUNNER ----------
-            else:
-                curr = internal_state["task_runner"]["replicas"]
-                new = max(curr - delta, 1)
-
-                internal_state["task_runner"]["cpu"] = min(
-                    internal_state["task_runner"]["cpu"] + 5 * delta, 100
-                )
-                internal_state["task_runner"]["replicas"] = new
-
-                # reducing task runner reduces pressure on DB slightly
-                internal_state["db"]["cpu"] = max(
-                    internal_state["db"]["cpu"] - 2 * delta, 20
-                )
-
+            self.common_methods.change_internal_state_replicas(internal_state[svc]["load_balancer"], action.value)
 
         elif action.action_type == "restart_service":
             svc = action.target
@@ -226,20 +261,6 @@ class HardFeedbackLoopTask:
         if action.action_type == "scale_service":
             reward -= 0.1 * action.value
 
-        if action.action_type == "scale_down_service":
-            # check if the action is incorrect penalize hard
-            if action.target == "api":
-                if action.value >= prev_api["replicas"]:
-                    return -1 # At least 1 replica should be running always
-            elif action.target == "db":
-                if action.value >= prev_db["replicas"]:
-                    return -1
-            elif action.value == "task_runner":
-                if action.value >= prev_task["replicas"]:
-                    return -1
-            else:
-                return -1 # no matching components
-            reward -= 0.05 * action.value  # smaller penalty (encourage fixing over-provisioning)
 
         if curr_db["cpu"] > prev_db["cpu"]:
             reward -= 0.2
@@ -259,6 +280,12 @@ class HardFeedbackLoopTask:
         penalty += under_util_penalty(curr_api["cpu"], curr_api["free_memory"])
         penalty += under_util_penalty(curr_db["cpu"], curr_db["free_memory"])
         penalty += under_util_penalty(curr_task["cpu"], curr_task["free_memory"])
+
+        if action.action_type == "revert_version":
+            reward -= 0.2 # already in v1 no sense to revert any component's version
+
+        if action.action_type == "change_lb_config":
+            reward -= self.common_methods.penalty_for_unbalanced_config(current_state=curr_state)
 
         reward -= penalty
 
@@ -300,6 +327,6 @@ class HardFeedbackLoopTask:
 
         return {
             "success": success,
-            "score": score,
+            "score": round(score, 2),
             "reason": reason
         }

@@ -11,13 +11,399 @@ tags:
   - openenv
 ---
 
-# Deploy Buddy Environment
+## 🌟 Deploy Buddy
 
-*Deploy Buddy* is an SRE (Site Reliability Engineer) simulation environment built on OpenEnv.
-It trains AI agents to diagnose and resolve real-world production incidents intelligently.
+**Deploy Buddy** is a realistic Site Reliability Engineering (SRE) simulation environment designed to evaluate intelligent agents in handling production-like incidents. Inspired by real-world operational challenges, each scenario requires agents to go beyond single-step fixes and instead perform **multi-step decision-making** to restore system stability.
 
-👉 Core idea:
-*Observe system → Identify root cause → Take correct action*
+Each interaction step represents a distinct challenge for the agent, where **rewards** are granted for effective decisions and **penalties** are applied for harmful or ineffective actions. These consequences may introduce new system states, encouraging the agent to reason iteratively and adapt its strategy over time.
+
+To further emulate real-world operational constraints, Deploy Buddy incorporates **cost-awareness** by penalizing over-provisioned or idle resources. This incentivizes agents to prioritize **cost-effective solutions** while maintaining system reliability and performance.
+
+
+### Key Highlights
+- **Real-World Actions**: Agents perform practical operational steps such as scaling services, restarting components, reverting faulty deployments, and redistributing replicas.
+- **Multi-Step RL Interaction**: Many incidents require a sequence of coordinated actions rather than a single fix, encouraging long-horizon reasoning.
+- **Root Cause Analysis**: Scenarios are designed to differentiate between *symptoms* and the *actual underlying problem*.
+- **Decision Trade-offs**: Agents must balance reliability, performance, and cost, mirroring real SRE decision-making.
+- **System-Level Reasoning**: Tasks capture the interdependencies of distributed systems, requiring holistic understanding.
+- **Progressive Difficulty**: Incidents range from straightforward bottlenecks to complex cascading failures
+
+
+
+---
+
+## 🧩 Tasks
+
+Deploy Buddy contains **five incident scenarios**, each crafted to test different aspects of operational intelligence and decision-making.
+
+### 🟢 Task 1: Easy — Database Bottleneck
+
+**Problem**
+- Database CPU usage is critically high and connection pools are exhausted.
+
+**Symptoms**
+- Increased API latency.
+- Elevated database CPU and connection metrics.
+
+**Root Cause**
+- Database overload due to increased traffic.
+
+**Correct Action**
+- ✅ **Scale the database** to handle the additional load.
+
+**Common Incorrect Actions**
+- ❌ Scaling the API service.
+- ❌ Restarting unrelated services.
+
+**Learning Objective**
+> *Identify the true bottleneck and scale the correct component.*
+
+---
+
+### 🟡 Task 2: Medium — Incompatible version change Deployment
+
+**Problem**
+- Most of the API Calls by api server to task runner are failing with Bad request error
+
+**Clues**
+- Logs indicate a **recent version upgrade**.
+- error rate in api server and task runner services increasing with time
+
+**Root Cause**
+- A **recent version pathcing in task runner service is incompatible**
+
+**Correct Action**
+- ✅ **Revert the Task Runner to the previous stable version.**
+
+**Common Incorrect Actions**
+- ❌ Scaling the Task Runner (does not fix the bug and increases cost).
+- ❌ Restarting services without reverting the version.
+
+**Learning Objective**
+> *Not all incidents are solved by scaling—sometimes the issue lies in faulty/incompatible code.*
+
+
+---
+
+### 🟡 Task 3: Medium — Memory Leak After Deployment
+
+**Problem**
+- Task Runner services exhibit continuously increasing memory usage and frequent crashes.
+
+**Clues**
+- Logs indicate a **recent version upgrade**.
+- Memory usage grows steadily over time.
+
+**Root Cause**
+- A **memory leak introduced in the latest deployment**, not a resource shortage.
+
+**Correct Action**
+- ✅ **Revert the Task Runner to the previous stable version.**
+
+**Common Incorrect Actions**
+- ❌ Scaling the Task Runner (does not fix the bug and increases cost).
+- ❌ Restarting services without reverting the version.
+
+**Learning Objective**
+> *Not all incidents are solved by scaling—sometimes the issue lies in faulty code.*
+
+---
+
+---
+
+### 🟠 Task 4: Medium-Hard — Availability Zone Failure
+
+**Problem**
+- One availability zone becomes unreachable, reducing system redundancy and resilience.
+
+**Symptoms**
+- Reduced replica count in the affected zone.
+- Increased load on remaining zones.
+- Potential risk to service availability.
+
+**Root Cause**
+- Infrastructure failure leading to a **zone outage**.
+
+**Correct Action**
+- ✅ **Redistribute and scale replicas in healthy zones** to maintain high availability.
+
+**Common Incorrect Actions**
+- ❌ Scaling replicas in the unreachable zone.
+- ❌ Restarting services without addressing capacity constraints.
+
+**Learning Objective**
+> *Ensure resilience by maintaining redundancy and intelligently redistributing resources.*
+
+---
+
+### 🔴 Task 5: Hard — Cascading Failure from Retry Storm
+
+**Problem**
+- A retry storm causes cascading failures across services.
+
+**Symptoms**
+- Increasing API error rates.
+- Overloaded Task Runners.
+- System instability due to repeated retries.
+
+**Root Cause**
+- A **feedback loop between the API and Task Runner**, where retries amplify system load.
+
+**Correct Multi-Step Actions**
+1. ✅ **Scale the Task Runner** to handle the backlog.
+2. ✅ **Restart the API Server** to break the retry loop.
+
+**Common Incorrect Actions**
+- ❌ Scaling down the Task Runner.
+- ❌ Reverting service versions.
+- ❌ Restarting unrelated components.
+
+**Learning Objective**
+> *Understand system interactions and execute coordinated multi-step mitigation.*
+
+
+
+---
+
+## 🧠 Skills Evaluated
+
+| Capability | Description |
+|-----------|-------------|
+| **Root Cause Analysis** | Distinguishing between symptoms and underlying issues. |
+| **Real-World Actions** | Executing operational steps like scaling, restarting, and reverting deployments. |
+| **Multi-Step Decision Making** | Performing coordinated sequences of actions to resolve incidents. |
+| **System-Level Reasoning** | Understanding dependencies across distributed services. |
+| **Decision Trade-offs** | Balancing reliability, performance, and cost. |
+| **High Availability & Resilience** | Maintaining service continuity during infrastructure failures. |
+
+---
+
+> **Deploy Buddy bridges the gap between theoretical RL environments and real-world SRE operations**, providing a meaningful benchmark for evaluating intelligent agents capable of managing production-scale distributed systems.
+
+## Key SRE Lessons
+
+* Don’t blindly scale
+* Prioritize both metrics and logs, and current state
+* Identify root cause, not symptoms
+* Systems fail in chains, not isolation
+* Right action > more resources
+
+## Goals
+* Incident diagnosis
+* Infrastructure decision-making
+* Real-world system failures
+* Most cost effective Solutions
+
+## 👀 Observation Space
+
+The **observation space** in Deploy Buddy represents the real-time state of a distributed production system. It provides agents with structured telemetry, logs, alerts, and infrastructure-level details required for **root cause analysis**, **multi-step decision-making**, and **cost-effective remediation**.
+
+Each interaction with the environment returns a JSON object containing the current system state, the reward for the previous action, and whether the episode has terminated.
+
+### 📦 Observation Structure
+
+```json
+{
+  "observation": {
+    "metrics": { ... },
+    "logs": [ ... ],
+    "alerts": [ ... ],
+    "step": 0,
+    "internal_state": { ... },
+    "task_id": 0,
+    "grades_data": {}
+  },
+  "reward": 0.0,
+  "done": false
+}
+
+
+📊 1. Metrics
+
+The metrics field contains high-level telemetry similar to what an SRE would observe from monitoring systems such as Prometheus, Datadog, or CloudWatch. These metrics help the agent quickly identify anomalies and potential bottlenecks.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `api_latency` | float | Average API response latency in milliseconds. |
+| `api_error` | float | API error rate (0–1). |
+| `api_free_memory` | float | Available memory for the API service (GB). |
+| `db_cpu` | float | Database CPU utilization percentage. |
+| `db_connections` | float | Percentage of database connections in use. |
+| `db_latency` | float | Database query latency in milliseconds. |
+| `db_disk_availability` | float | Available disk space for the database (GB). |
+| `task_runner_cpu` | float | CPU utilization of the Task Runner service. |
+| `task_runner_disk` | float | Available disk space for the Task Runner (GB). |
+| `task_runner_free_memory` | float | Available memory for the Task Runner (GB). |
+
+2. Logs
+
+The logs field provides textual clues about system behavior, often pointing toward the root cause of an incident.
+
+🚨 3. Alerts
+
+The alerts field simulates monitoring alerts that signal abnormal system conditions. These are high-level indicators guiding the agent toward problematic components.
+
+🏗️ 5. Internal State
+
+The internal_state provides a detailed, service-level view of the system. While metrics offer aggregated insights, this section exposes deeper infrastructure details necessary for precise remediation actions.
+
+Each service (api, db, task_runner) includes performance metrics, deployment versions, and load balancer configurations across availability zones.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `api_latency` | float | Average API response latency in milliseconds. |
+| `api_error` | float | API error rate (0–1). |
+| `api_free_memory` | float | Available memory for the API service (GB). |
+| `db_cpu` | float | Database CPU utilization percentage. |
+| `db_connections` | float | Percentage of database connections in use. |
+| `db_latency` | float | Database query latency in milliseconds. |
+| `db_disk_availability` | float | Available disk space for the database (GB). |
+| `task_runner_cpu` | float | CPU utilization of the Task Runner service. |
+| `task_runner_disk` | float | Available disk space for the Task Runner (GB). |
+| `task_runner_free_memory` | float | Available memory for the Task Runner (GB). |
+| `latency` | float | Service-specific latency in milliseconds. |
+| `cpu` | float | CPU utilization percentage. |
+| `error` | float | Error rate (0–1). |
+| `free_memory` | float | Available memory (GB). |
+| `connections` | int | Number of active connections (API/DB only). |
+| `disk_available` | float | Available disk space (GB). |
+| `version` | string | Currently deployed software version. |
+| `load_balancer` | object | Distribution of replicas across availability zones. |
+
+
+### sample Example
+{
+  "observation": {
+    "metrics": {
+      "api_latency": 208.0,
+      "api_error": 0.02,
+      "api_free_memory": 4.0,
+      "db_cpu": 90.0,
+      "db_connections": 95.0,
+      "db_latency": 607.0,
+      "db_disk_availability": 950.0,
+      "task_runner_cpu": 45.0,
+      "task_runner_disk": 14.0,
+      "task_runner_free_memory": 4.0
+    },
+    "logs": [
+      "DB connection pool exhausted"
+    ],
+    "alerts": [
+      "High CPU usage in db",
+      "High DB Latency alert"
+    ],
+    "step": 0,
+    "internal_state": {
+      "api": {
+        "latency": 200,
+        "cpu": 45,
+        "error": 0.02,
+        "free_memory": 4,
+        "connections": 50,
+        "version": "v1",
+        "load_balancer": {
+          "zone_a": { "replicas": 1, "reachable": true },
+          "zone_b": { "replicas": 1, "reachable": true },
+          "zone_c": { "replicas": 0, "reachable": null }
+        }
+      },
+      "db": {
+        "cpu": 90,
+        "connections": 95,
+        "latency": 600,
+        "disk_available": 950,
+        "free_memory": 8,
+        "version": "v1",
+        "load_balancer": {
+          "zone_a": { "replicas": 1, "reachable": true },
+          "zone_b": { "replicas": 0, "reachable": null },
+          "zone_c": { "replicas": 0, "reachable": null }
+        }
+      },
+      "task_runner": {
+        "latency": 200,
+        "cpu": 45,
+        "error": 0.02,
+        "free_memory": 4,
+        "disk_available": 14,
+        "version": "v1",
+        "load_balancer": {
+          "zone_a": { "replicas": 1, "reachable": true },
+          "zone_b": { "replicas": 1, "reachable": true },
+          "zone_c": { "replicas": 0, "reachable": null }
+        }
+      }
+    },
+    "task_id": 0,
+    "grades_data": {}
+  },
+  "reward": 0.0,
+  "done": false
+} 
+
+
+
+## 🏆 Reward Evaluation (Deterministic Heuristic Graders)
+
+Deploy Buddy uses **Deterministic Heuristic Graders** to evaluate agent actions and assign rewards. This approach ensures **transparent**, **reproducible**, and **interpretable** evaluation of decisions, closely mirroring how real-world Site Reliability Engineers (SREs) assess incident response effectiveness.
+
+Unlike black-box reward mechanisms, deterministic graders rely on well-defined rules derived from domain expertise. Each action taken by the agent is evaluated based on its **impact on system health**, **progress toward incident resolution**, and **cost efficiency**.
+
+---
+
+### 🌟 Key Principles
+
+| Principle | Description |
+|----------|-------------|
+| **Deterministic** | The same state-action pair always yields the same reward, ensuring reproducibility. |
+| **Heuristic-Based** | Rewards are derived from domain-informed rules reflecting real SRE practices. |
+| **Multi-Step Evaluation** | Each action is evaluated within the context of a sequential decision-making process. |
+| **Root Cause Alignment** | Actions addressing the true root cause receive higher rewards. |
+| **Cost Awareness** | Over-provisioning or idle resources incur penalties to encourage efficient solutions. |
+| **Safety-Oriented** | Harmful or destabilizing actions are penalized to discourage risky behavior. |
+
+---
+
+### 🧩 Reward Components
+
+The total reward at each step is computed as a combination of several interpretable components:
+
+| Component | Description | Example |
+|----------|-------------|---------|
+| **Correct Action Reward** | Granted when the agent performs an action aligned with the root cause. | Scaling the database during a DB bottleneck. |
+| **Incorrect Action Penalty** | Applied when the action does not address the issue or worsens the system. | Scaling the API instead of the database. |
+| **System Health Improvement** | Rewards measurable improvements in metrics such as latency or error rates. | Reduction in API latency after remediation. |
+| **Multi-Step Progress** | Incremental rewards for actions that move the system toward resolution. | Scaling before restarting to stabilize the system. |
+| **Cost Efficiency Penalty** | Penalizes over-provisioned or idle resources. | Excess replicas after incident resolution. |
+| **Stability Bonus** | Granted when the system reaches a healthy and stable state. | All services operating within normal thresholds. |
+| **Time Penalty** | Encourages faster resolution by penalizing unnecessary steps. | Idle or ineffective actions. |
+
+---
+
+### 🧮 Reward Calculation (Conceptual)
+
+The reward is computed as a weighted sum of the above components:
+
+```text
+Reward =
+  + Correct_Action_Bonus
+  + System_Health_Improvement
+  + Stability_Bonus
+  - Incorrect_Action_Penalty
+  - Cost_Penalty
+  - Time_Penalty
+
+
+## Baseline Inference Scores
+| **Tier** | **Task ID**  | **Mean Score** | **Max Score** |
+|---------|-------------|----------------------|--------------|---------------|--------------|
+| Easy | `task_1`   | **0.95** | **0.95** |
+| Medium | `task_2`  | **0.50** | **0.80** |
+| Medium | `task_3`  | **0.60** | **0.85** |
+| Medium-Hard | `task_4`| **0.50** | **0.75** |
+| Hard | `task_5`| **0.47** | **0.66** |
+| **OVERALL** | — | — | — | **0.64** | **0.82** |
 
 ---
 
@@ -247,64 +633,6 @@ Run the server locally for development:
 uvicorn server.app:app --reload
 ```
 
-## Tasks
-Deploy Buddy contains *3 incident scenarios*:
-
-### Task 1: Easy — DB Bottleneck
-
-* *Problem*: Database CPU high, connections exhausted
-* *Symptom*: API latency increases
-* *Root Cause*: DB overload
-
- *Correct Action*: Scale database
-  Wrong: Scaling API, restarting services
-
- *Learning*:
-*Identify bottleneck and scale the right component*
-
-###  Task 2: Medium — Memory Leak
-
-* *Problem*: Task Runners having very high memory usage, crashing
-* *Clue*: Recent version upgrade in logs
-* *Root Cause*: Bug (memory leak) in the recent upgrades, not resource issue
-
-*Correct Action*: Revert version
-Wrong: Scaling (makes it worse)
-
- *Learning*:
-*Not all problems are solved by scaling — sometimes it’s code*
-
----
-
-### Task 3: Hard — Feedback Loop
-
-- Problem: Cascading failures due to retry storm  
-- Root Cause: API ↔ Task Runner feedback loop  
-
-Correct Action:
-1. scale Task Runner
-2. Restart Api Server
-
- Wrong:
-- Scaling down Task Runner
-- Reverting versions
-
- Learning:
-*Understand system interactions, find the actual bottleneck component and act on it*
-
-## Key SRE Lessons
-
-* Don’t blindly scale
-* Prioritize both metrics and logs
-* Identify root cause, not symptoms
-* Systems fail in chains, not isolation
-* Right action > more resources
-
-## Goals
-* Incident diagnosis
-* Infrastructure decision-making
-* Real-world system failures
-
 ## Project Structure
 
 ```
@@ -322,8 +650,10 @@ deploy_buddy/
     ├── deploy_buddy_environment.py  # Core environment logic
     ├── app.py             # FastAPI application (HTTP + WebSocket endpoints)
     └── Dockerfile         # Container image definition
-    |___tasks
+    |___tasks              # Contains tasks definations, grading logic etc
         ├── EasyDBOverloadTask.py
         ├── MediumMemoryLeakTask.py
-        └── HardFeedbackLoopTask.py
+        ├── MediumVersionIncompatibility.py
+        ├── HardFeedbackLoopTask.py
+        └── HardFeedBackLoop.py
 ```

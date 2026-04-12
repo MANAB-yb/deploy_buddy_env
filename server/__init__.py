@@ -7,5 +7,7 @@
 """Deploy Buddy environment server components."""
 
 from .deploy_buddy_environment import DeployBuddyEnvironment
+from .common_methods import CommonMethods
 
-__all__ = ["DeployBuddyEnvironment"]
+__all__ = ["DeployBuddyEnvironment", "CommonMethods"]
+

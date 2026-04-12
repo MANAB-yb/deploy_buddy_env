@@ -33,6 +33,7 @@ class DeployBuddyEnv(
         obs_data = payload.get("observation", {})
 
         observation = DeployBuddyObservation(
+            internal_state=obs_data.get("internal_state", {}),
             metrics=obs_data.get("metrics", {}),
             logs=obs_data.get("logs", []),
             alerts=obs_data.get("alerts", []),

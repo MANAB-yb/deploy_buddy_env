@@ -3,19 +3,19 @@ from deploy_buddy.models import DeployBuddyAction
 from ..common_methods import CommonMethods
 import numpy as np
 
-class MediumMemoryLeakTask:
+class MediumVersionIncompatibility:
     def __init__(self):
         self.common_methods = CommonMethods()
         self.name = "medium"
-        self.MAX_REPLICAS = 6
         self.restarted = []
+        self.MAX_REPLICAS = 6
 
     def get_initial_state(self):
         return {
             "services": {
                 "api": {
                     "latency": 300, 
-                    "error": 0.4, 
+                    "error": 0.5, 
                     "cpu": 80, 
                     "connections": 50,
                     "free_memory": 12, 
@@ -39,7 +39,7 @@ class MediumMemoryLeakTask:
                 },
                 "task_runner": {
                     "latency": 200, 
-                    "error": 1, 
+                    "error": 0.7, 
                     "free_memory": 0.5, 
                     "cpu": 85, 
                     "connections": 90, 
@@ -66,7 +66,7 @@ class MediumMemoryLeakTask:
                     "latency": 50, 
                     "disk_available": 70, 
                     "free_memory": 12,
-                    "version": "v2",
+                    "version": "v1",
                     "load_balancer": {
                             "zone_a": {
                                 "replicas": 1,
@@ -96,21 +96,25 @@ class MediumMemoryLeakTask:
             "upgraded version of task_runner from v1 to v2"
             ]
         kube_restart_logs = [
-                "memory of task runner is hiting the limit recreating the pods ...",
-                "memory of task runner is hiting the limit recreating the pods ...",
-                "memory of task runner is hiting the limit recreating the pods ...",
-                "api server polling for task create universe def failed due to connectivity failure",
-                "memory of task runner is hiting the limit recreating the pods ...",
-                "memory of task runner is hiting the limit recreating the pods ...",
-                "api server polling for task create universe def failed due to connectivity failure",
-                "memory of task runner is hiting the limit recreating the pods ...",
-                "api server submitting task for create universe failed ... no response from task runner"
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "api server successfully submitted task create universe xyz",
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "200 ok response from task runner - create universe for xyz initiated",
+                "api server polling for create universe xyz failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for create universe xyz failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for create universe xyz failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for edit universe abc failed with response 400(Bad Request) error from Task Runner",
+                "api server polling for create universe xyz failed with response 400(Bad Request) error from Task Runner"
             ]
         logs = []
         if calls == 0:
             return init_logs + kube_restart_logs, alerts
-        elif internal_state["task_runner"]["free_memory"] < 1.0:
-            # Still memory is leaking so pods are continiously getting restart
+        elif internal_state["task_runner"]["version"] == "v2":
+            # Still it's incompatibe
             return kube_restart_logs, alerts
         else:
             # if more than 1 GB free memory left then we can say it's stable
@@ -178,11 +182,12 @@ class MediumMemoryLeakTask:
                 internal_state["api"]["cpu"] = max(internal_state["api"]["cpu"] - 20, 23)
                 internal_state["task_runner"]["version"] = "v1"
                 return internal_state
-        # Memory leaks after every step
-        internal_state["task_runner"]["free_memory"] = max(internal_state["task_runner"]["free_memory"] - 0.2, 0)
-        if internal_state["task_runner"]["free_memory"] < 1:
+        
+        if internal_state["task_runner"]["version"] == "v2":
             internal_state["task_runner"]["latency"] += 20
             internal_state["api"]["latency"] += 10
+            internal_state["api"]["error"] += 0.01
+            internal_state["task_runner"]["error"] += 0.02
         
         # In all other tasks it can improve a bit for some time but ultimately will come to the same state
         return internal_state
@@ -190,6 +195,7 @@ class MediumMemoryLeakTask:
     def compute_reward(self, prev_state, curr_state, action: DeployBuddyAction):
         reward = 0.0
 
+        # although restarts don't help here but good practice to try rolling restart
         if action.action_type == "restart_service" and action.target not in self.restarted:
             reward += 0.3
             self.restarted.append(action.target)

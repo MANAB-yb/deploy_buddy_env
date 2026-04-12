@@ -1,19 +1,87 @@
 from deploy_buddy.models import DeployBuddyAction
+# Use one dot for same directory, or two dots for parent
+from ..common_methods import CommonMethods
 import numpy as np
 
 class EasyDBOverloadTask:
     def __init__(self):
         self.name = "easy"
         self.MAX_REPLICAS = 10
+        self.common_methods = CommonMethods()
 
     def get_initial_state(self):
         return {
             "services": {
-                "api": {"latency": 200, "cpu": 45, "error": 0.02, "replicas": 2, "free_memory": 4, "connections": 50},
-                "db": {"cpu": 90, "connections": 95, "replicas": 1, "latency": 600, "disk_available": 950, "free_memory": 8},
-                "task_runner": {"latency": 200, "cpu": 45, "error": 0.02, "replicas": 2, "free_memory": 4, "disk_available": 14}
+                "api": {
+                        "latency": 200, 
+                        "cpu": 45, 
+                        "error": 0.02, 
+                        # "default_zone": "zone_a", 
+                        "free_memory": 4, 
+                        "connections": 50,
+                        "version": "v1",
+                        "load_balancer": {
+                            "zone_a": {
+                                "replicas": 1,
+                                "reachable": True
+                            },
+                            "zone_b": {
+                                "replicas": 1,
+                                "reachable": True 
+                            },
+                            "zone_c": {
+                                "replicas": 0,
+                                "reachable": None # lb not trying to connect them
+                            }
+                        }
+                    },
+                "db": {
+                        "cpu": 90, 
+                        "connections": 95, 
+                        # "default_zone": "zone_a", 
+                        "latency": 600, 
+                        "disk_available": 950, 
+                        "free_memory": 8,
+                        "version": "v1",
+                        "load_balancer": {
+                            "zone_a": {
+                                "replicas": 1,
+                                "reachable": True
+                            },
+                            "zone_b": {
+                                "replicas": 0,
+                                "reachable": None # lb not trying to connect them
+                            },
+                            "zone_c": {
+                                "replicas": 0,
+                                "reachable": None
+                            }
+                        }
+                    },
+                "task_runner": {
+                        "latency": 200, 
+                        "cpu": 45, 
+                        "error": 0.02,
+                        # "default_zone": "zone_a", 
+                        "free_memory": 4, 
+                        "disk_available": 14,
+                        "version": "v1",
+                        "load_balancer": {
+                            "zone_a": {
+                                "replicas": 1,
+                                "reachable": True
+                            },
+                            "zone_b": {
+                                "replicas": 1,
+                                "reachable": True 
+                            },
+                            "zone_c": {
+                                "replicas": 0,
+                                "reachable": None # lb not trying to connect them
+                            }
+                        }
+                    }
             },
-            "incident": "db_overload",
             "time": 0,
         }
     
@@ -21,43 +89,33 @@ class EasyDBOverloadTask:
         return [], []
     
     def apply_actions(self, internal_state, action: DeployBuddyAction):
-        if action.action_type == "scale_service":
+        if action.action_type == "change_lb_config":
             svc = action.target
-            final_count = action.value
-            if final_count == 0:
-                return internal_state # nothing to increase if 0
+            curr_replicas, final_count = self.common_methods.define_change_configs(action.value, internal_state[svc]["load_balancer"])
+            delta = final_count - curr_replicas
             if svc == "db":
-                curr_replicas = internal_state["db"]["replicas"]
-                final_count = min(final_count + curr_replicas, self.MAX_REPLICAS)
-                # as of now evenly distributing the total load accross the instances
+                
                 internal_state["db"]["cpu"] = max(((internal_state["db"]["cpu"] * curr_replicas) / final_count), 10)
                 internal_state["db"]["connections"] = max(((internal_state["db"]["connections"] * curr_replicas) / final_count), 2)
                 internal_state["db"]["latency"] = max(((internal_state["db"]["latency"] * curr_replicas) / final_count), 2)
-                internal_state["db"]["replicas"] = final_count
+                # internal_state["db"]["replicas"] = final_count
             elif svc == "api":
-                curr_replicas = internal_state["api"]["replicas"]
-                final_count = min(final_count + curr_replicas, self.MAX_REPLICAS)
-                # as of now evenly distributing the total load accross the instances
+                
                 internal_state["api"]["cpu"] = max(((internal_state["api"]["cpu"] * curr_replicas) / final_count), 20)
                 internal_state["api"]["connections"] = max(((internal_state["api"]["connections"] * curr_replicas) / final_count), 2)
-                internal_state["api"]["replicas"] = final_count
+                # internal_state["api"]["replicas"] = final_count
                 # Will add some internal load on the DB
                 internal_state["db"]["cpu"] = min(internal_state["db"]["cpu"] + 5, 100)
-                added_replica = action.value
-                internal_state["api"]["free_memory"] = min((internal_state["api"]["free_memory"] + added_replica * 5), 15)
+                internal_state["api"]["free_memory"] = min((internal_state["api"]["free_memory"] + delta * 0.1), 15)
             else:
                 # Task Runner
-                curr_replicas = internal_state["task_runner"]["replicas"]
-                final_count = min(final_count + curr_replicas, self.MAX_REPLICAS)
-                # as of now evenly distributing the total load accross the instances
                 internal_state["task_runner"]["cpu"] = max(((internal_state["task_runner"]["cpu"] * curr_replicas) / final_count), 20)
                 internal_state["task_runner"]["connections"] = max(((internal_state["task_runner"]["connections"] * curr_replicas) / final_count), 2)
-                internal_state["task_runner"]["replicas"] = final_count
+                # internal_state["task_runner"]["replicas"] = final_count
                 # Will add some internal load on the DB
                 internal_state["db"]["cpu"] = min(internal_state["db"]["cpu"] + 5, 100)
-                added_replica = action.value
-                internal_state["task_runner"]["free_memory"] = min((internal_state["task_runner"]["free_memory"] + added_replica * 5), 15)
-        
+                internal_state["task_runner"]["free_memory"] = min((internal_state["task_runner"]["free_memory"] + delta * 5), 15)
+            self.common_methods.change_internal_state_replicas(internal_state[svc]["load_balancer"], action.value)
         # In all other tasks it can improve a bit but ultimately will come to the same state
         return internal_state
 
@@ -90,9 +148,11 @@ class EasyDBOverloadTask:
         penalty += under_util_penalty(curr_api["cpu"], curr_api["free_memory"])
         penalty += under_util_penalty(curr_db["cpu"], curr_db["free_memory"])
         penalty += under_util_penalty(curr_task_runner["cpu"], curr_task_runner["free_memory"])
-        # small penalty for incorret action
-        if action.action_type != "scale_service":
-            penalty += 0.05
+        if action.action_type == "revert_version":
+            reward -= 0.2 # already in v1 no sense to revert any component's version
+
+        if action.action_type == "change_lb_config":
+            reward -= self.common_methods.penalty_for_unbalanced_config(current_state=curr_state)
 
         reward -= penalty
  
@@ -125,6 +185,6 @@ class EasyDBOverloadTask:
 
         return {
             "success": success,
-            "score": score,
+            "score": round(score, 2),
             "reason": reason
         }

@@ -5,7 +5,7 @@ models.py
 pyproject.toml
 ./__init__.py
 ./client.py
-./inference_script.py
+./inference.py
 ./models.py
 openenv_deploy_buddy.egg-info/PKG-INFO
 openenv_deploy_buddy.egg-info/SOURCES.txt
@@ -15,4 +15,5 @@ openenv_deploy_buddy.egg-info/requires.txt
 openenv_deploy_buddy.egg-info/top_level.txt
 server/__init__.py
 server/app.py
+server/common_methods.py
 server/deploy_buddy_environment.py

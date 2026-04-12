@@ -14,7 +14,7 @@ API_KEY = os.getenv("API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 
-TASK_NAME = ["task1", "task2", "task3"]
+TASK_NAME = ["task1" , "task2", "task3", "task4", "task5"]
 # TASK_NAME = ["task2"]
 
 BENCHMARK = "deploy_buddy"
@@ -40,66 +40,68 @@ Your job is to:
 3. Take ONE action that directly addresses the root cause
 
 Guidelines:
-- DO NOT blindly scale services
-- Scaling is useful only if the issue is resource saturation
+- DO NOT make unnecessary configuration changes
 - Logs often contain the real root cause — prioritize them
-- Repeated failures or restarts indicate deeper issues (not scaling problems)
+- Repeated failures or restarts indicate deeper issues
 - If a recent change caused instability, consider reverting it
 - Avoid unnecessary actions — efficiency matters
 
+Load Balancer Configuration:
+- This can be used to scale up/down the component as well if we want to deploy some more or less nodes, load balancer will take care of
+deploying and destroying based on the config
+- The system is deployed across multiple availability zones.
+- Traffic is distributed based on the number of replicas in each zone.
+- Ensure the configuration remains balanced
+
+
 Valid actions STRICTLY MAINTAIN THIS LIST:
-1. scale_service(target=<api|db|task_runner>, value=<int>)
-2. scale_down_service(target=<api|db|task_runner>, value=<int>)
-3. restart_service(target=<api|db|task_runner>)
-4. revert_version(target=<api|db|task_runner>)
-5. wait
+1. change_lb_config(target=<api|db|task_runner>, value=<json>)
+2. restart_service(target=<api|db|task_runner>)
+3. revert_version(target=<api|db|task_runner>)
+4. wait
 
-Scaling can be an INCORRECT action.
-
-If the issue is caused by:
-- memory leaks
-- version bugs
-- repeated restarts
-- failing dependencies
-
-Then scaling WILL NOT fix the problem and should be avoided.
-
-If you scale without strong evidence of resource saturation,
-you are likely making the system worse.
-
-In distributed systems, issues can propagate across services.
-
-A symptom in one service does NOT always mean that service is the root cause.
-
-Before taking action:
-- Identify which component is the SOURCE of the issue
-- Distinguish between root cause vs downstream impact
-
+Action:
+- change_lb_config:
+  Adjusts the number of replicas in each availability zone for the specified service.
+  The `value` must be a JSON object where:
+    - Keys represent zone names (e.g., "zone_a", "zone_b", "zone_c")
+    - Values represent the desired number of replicas (non-negative integers)
+    - When modifying the load balancer configuration, distribute replicas as evenly as possible across all reachable zones. Consider unreachable zones as unavailable, equivalent to having zero replicas.
 Examples:
-- High API latency may be caused by DB overload
-- Task failures may be caused by memory issues in task_runner
-
-Always act on the ROOT CAUSE component, not the symptom.
+- If zone_b is unreachable:
+  {
+    "action_type": "change_lb_config",
+    "target": "api",
+    "value": {
+      "zone_a": 1,
+      "zone_b": 0,
+      "zone_c": 1
+    }
+  }
 
 Reverting a version is a high-impact action and should NOT be used blindly.
-
 Only use revert_version if there is clear evidence of a recent change causing instability.
-
 Evidence may include:
 - logs mentioning upgrades, deployments, or version changes
 - errors starting after a change event
 - repeated failures following a version update
-
 If there is NO indication of a recent change, avoid reverting.
-
+But if version change is there and errors are present after version change and restarts not helping new version can be incompetenet or buggy
 Unnecessary reverts can disrupt a stable system and should be avoided.
 
+Before taking action:
+- Identify which component is the SOURCE of the issue
+- Distinguish between root cause vs downstream impact
+- Always act on the ROOT CAUSE component, not the symptom.
+
 Output STRICTLY JSON: If your output is not valid JSON, your answer is considered WRONG.
+
 {
   "action_type": "...",
   "target": "...",
-  "value": <int or null>
+  "value": <json object or null>
 }
+
 DO NOT include any explanation. ONLY output valid JSON.
 """
 
@@ -221,6 +223,8 @@ async def main():
 
             try:
                 result = await env.reset(taskId=task)
+                # print(result)
+
 
                 for step in range(1, MAX_STEPS + 1):
                     obs = result.observation
@@ -259,6 +263,7 @@ async def main():
                 grade = grade_data.observation.grades_data
 
                 score = grade['score']
+                # print(f"reason is {grade['reason']}")
                 
                 reflection_prompt = f"""
                     TASK FINISHED.
