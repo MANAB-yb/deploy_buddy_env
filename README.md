@@ -273,6 +273,7 @@ Each service (api, db, task_runner) includes performance metrics, deployment ver
 
 
 ### sample Example
+```json
 {
   "observation": {
     "metrics": {
@@ -342,6 +343,7 @@ Each service (api, db, task_runner) includes performance metrics, deployment ver
   "reward": 0.0,
   "done": false
 } 
+```
 
 
 
