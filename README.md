@@ -216,6 +216,7 @@ Each interaction with the environment returns a JSON object containing the curre
   "reward": 0.0,
   "done": false
 }
+```
 
 
 📊 1. Metrics
