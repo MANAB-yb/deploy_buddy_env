@@ -400,14 +400,15 @@ Reward =
 
 
 ## Baseline Inference Scores
-| **Tier** | **Task ID**  | **Mean Score** | **Max Score** |
-|---------|-------------|----------------------|--------------|---------------|--------------|
-| Easy | `task_1`   | **0.95** | **0.95** |
-| Medium | `task_2`  | **0.50** | **0.80** |
-| Medium | `task_3`  | **0.60** | **0.85** |
-| Medium-Hard | `task_4`| **0.50** | **0.75** |
-| Hard | `task_5`| **0.47** | **0.66** |
-| **OVERALL** | — | — | — | **0.64** | **0.82** |
+
+| **Tier** | **Task ID** | **Mean Score** | **Max Score** |
+| :--- | :--- | :--- | :--- |
+| Easy | `task_1` | 0.95 | 0.95 |
+| Medium | `task_2` | 0.50 | 0.80 |
+| Medium | `task_3` | 0.60 | 0.85 |
+| Medium-Hard | `task_4` | 0.50 | 0.75 |
+| Hard | `task_5` | 0.47 | 0.66 |
+| **OVERALL** | — | **0.64** | **0.82** |
 
 ---
 
@@ -424,41 +425,6 @@ Client → Action → Server → Simulation → Observation → Client
 
 ---
 
-## Quick Start
-
-The simplest way to use the Deploy Buddy environment is through the `DeployBuddyEnv` class:
-
-```python
-from deploy_buddy import DeployBuddyAction, DeployBuddyEnv
-
-try:
-    # Create environment from Docker image
-    deploy_buddyenv = DeployBuddyEnv.from_docker_image("deploy_buddy-env:latest")
-
-    # Reset
-    result = deploy_buddyenv.reset()
-    print(f"Reset: {result.observation.echoed_message}")
-
-    # Send multiple messages
-    messages = ["Hello, World!", "Testing echo", "Final message"]
-
-    for msg in messages:
-        result = deploy_buddyenv.step(DeployBuddyAction(message=msg))
-        print(f"Sent: '{msg}'")
-        print(f"  → Echoed: '{result.observation.echoed_message}'")
-        print(f"  → Length: {result.observation.message_length}")
-        print(f"  → Reward: {result.reward}")
-
-finally:
-    # Always clean up
-    deploy_buddyenv.close()
-```
-
-That's it! The `DeployBuddyEnv.from_docker_image()` method handles:
-- Starting the Docker container
-- Waiting for the server to be ready
-- Connecting to the environment
-- Container cleanup when you call `close()`
 
 ## Building the Docker Image
 
