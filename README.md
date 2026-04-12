@@ -384,7 +384,7 @@ The total reward at each step is computed as a combination of several interpreta
 
 ---
 
-### 🧮 Reward Calculation (Conceptual)
+### 🧮 Reward Calculation
 
 The reward is computed as a weighted sum of the above components:
 
@@ -396,6 +396,7 @@ Reward =
   - Incorrect_Action_Penalty
   - Cost_Penalty
   - Time_Penalty
+```
 
 
 ## Baseline Inference Scores
