@@ -180,7 +180,7 @@ Deploy Buddy contains **five incident scenarios**, each crafted to test differen
 
 > **Deploy Buddy enacts real-world SRE operations**, providing a meaningful benchmark for evaluating intelligent agents capable of managing production-scale distributed systems.
 
-## Key SRE Lessons
+## Key Lessons
 
 * Don’t blindly scale
 * Prioritize both metrics and logs, and current state
@@ -347,8 +347,8 @@ Each service (api, db, task_runner) includes performance metrics, deployment ver
 
 
 
-## 🏆 Reward Evaluation (Deterministic Heuristic Graders)
-deterministic graders rely on well-defined rules derived from domain expertise. Each action taken by the agent is evaluated based on its **impact on system health**, **progress toward incident resolution**, and **cost efficiency**.
+## 🏆 Reward Evaluation
+Each action taken by the agent is evaluated based on its **impact on system health**, **progress toward incident resolution**, and **cost efficiency**.
 
 ---
 
